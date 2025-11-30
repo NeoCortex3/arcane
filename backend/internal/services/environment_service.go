@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/getarcaneapp/arcane/backend/internal/database"
 	"github.com/getarcaneapp/arcane/backend/internal/dto"
 	"github.com/getarcaneapp/arcane/backend/internal/models"
 	"github.com/getarcaneapp/arcane/backend/internal/utils"
 	"github.com/getarcaneapp/arcane/backend/internal/utils/pagination"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 

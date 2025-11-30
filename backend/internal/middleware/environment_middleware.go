@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/getarcaneapp/arcane/backend/internal/services"
 	"github.com/getarcaneapp/arcane/backend/internal/utils/remenv"
 	wsutil "github.com/getarcaneapp/arcane/backend/internal/utils/ws"
+	"github.com/gin-gonic/gin"
 )
 
 // EnvResolver should return the environment api url, optional access token, whether the env is enabled, and an error.

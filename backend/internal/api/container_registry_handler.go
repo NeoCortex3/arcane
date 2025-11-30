@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/getarcaneapp/arcane/backend/internal/common"
 	"github.com/getarcaneapp/arcane/backend/internal/dto"
 	"github.com/getarcaneapp/arcane/backend/internal/middleware"
@@ -14,6 +13,7 @@ import (
 	"github.com/getarcaneapp/arcane/backend/internal/utils"
 	"github.com/getarcaneapp/arcane/backend/internal/utils/pagination"
 	registry "github.com/getarcaneapp/arcane/backend/internal/utils/registry"
+	"github.com/gin-gonic/gin"
 )
 
 type ContainerRegistryHandler struct {

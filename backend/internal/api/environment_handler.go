@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/getarcaneapp/arcane/backend/internal/common"
 	"github.com/getarcaneapp/arcane/backend/internal/config"
 	"github.com/getarcaneapp/arcane/backend/internal/dto"
@@ -15,6 +14,7 @@ import (
 	"github.com/getarcaneapp/arcane/backend/internal/services"
 	"github.com/getarcaneapp/arcane/backend/internal/utils"
 	"github.com/getarcaneapp/arcane/backend/internal/utils/pagination"
+	"github.com/gin-gonic/gin"
 )
 
 const LOCAL_DOCKER_ENVIRONMENT_ID = "0"

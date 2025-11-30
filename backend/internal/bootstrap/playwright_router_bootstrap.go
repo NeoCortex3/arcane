@@ -5,9 +5,9 @@ package bootstrap
 import (
 	"log/slog"
 
-	"github.com/gin-gonic/gin"
 	"github.com/getarcaneapp/arcane/backend/internal/api"
 	"github.com/getarcaneapp/arcane/backend/internal/services"
+	"github.com/gin-gonic/gin"
 )
 
 func init() {

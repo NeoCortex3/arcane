@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/go-co-op/gocron/v2"
 	"github.com/getarcaneapp/arcane/backend/internal/services"
+	"github.com/go-co-op/gocron/v2"
 )
 
 const EventCleanupJobName = "EventCleanup"

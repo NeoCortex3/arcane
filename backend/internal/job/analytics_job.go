@@ -11,9 +11,9 @@ import (
 	"time"
 
 	backoff "github.com/cenkalti/backoff/v5"
-	"github.com/go-co-op/gocron/v2"
 	"github.com/getarcaneapp/arcane/backend/internal/config"
 	"github.com/getarcaneapp/arcane/backend/internal/services"
+	"github.com/go-co-op/gocron/v2"
 )
 
 const (

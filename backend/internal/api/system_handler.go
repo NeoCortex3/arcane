@@ -17,8 +17,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/getarcaneapp/arcane/backend/internal/common"
 	"github.com/getarcaneapp/arcane/backend/internal/config"
 	"github.com/getarcaneapp/arcane/backend/internal/dto"
@@ -27,6 +25,8 @@ import (
 	"github.com/getarcaneapp/arcane/backend/internal/services"
 	"github.com/getarcaneapp/arcane/backend/internal/utils"
 	httputil "github.com/getarcaneapp/arcane/backend/internal/utils/http"
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"

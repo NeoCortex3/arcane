@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/getarcaneapp/arcane/backend/internal/config"
 	"github.com/getarcaneapp/arcane/backend/internal/dto"
 	"github.com/getarcaneapp/arcane/backend/internal/models"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func newTestAuthService(secret string) *AuthService {

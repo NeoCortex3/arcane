@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/getarcaneapp/arcane/backend/internal/common"
 	"github.com/getarcaneapp/arcane/backend/internal/config"
 	"github.com/getarcaneapp/arcane/backend/internal/dto"
 	"github.com/getarcaneapp/arcane/backend/internal/middleware"
 	"github.com/getarcaneapp/arcane/backend/internal/services"
+	"github.com/gin-gonic/gin"
 )
 
 type SettingsHandler struct {
