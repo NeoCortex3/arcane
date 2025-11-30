@@ -14,6 +14,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { authService } from '$lib/services/auth-service';
 	import { getApplicationLogo } from '$lib/utils/image.util';
+	import GithubIcon from '$lib/icons/github-icon.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -245,8 +246,9 @@
 			href="https://github.com/ofkm/arcane"
 			target="_blank"
 			rel="noopener noreferrer"
-			class="glass-light bubble-pill hover:text-primary text-xs transition-colors"
+			class="glass-light bubble-pill hover:text-primary flex items-center gap-1.5 text-xs transition-colors"
 		>
+			<GithubIcon class="size-4" />
 			{m.common_view_on_github()}
 		</a>
 		{#if data.versionInformation?.displayVersion}

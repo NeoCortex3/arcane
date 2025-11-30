@@ -152,7 +152,7 @@ jobs:
 
   images:
     name: Build Next Image (${{ matrix.display }})
-    runs-on: depot-ubuntu-24.04-16
+    runs-on: depot-ubuntu-latest
     needs: create-release
     timeout-minutes: 45
     strategy:
