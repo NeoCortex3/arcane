@@ -57,7 +57,7 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean --skip=sign,announce,validate,nfpms,homebrew
+          args: release --clean --skip=sign,announce,validate,nfpm,homebrew
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD_NEXT: "true"
