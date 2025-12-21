@@ -1,5 +1,7 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import { TabBar, type TabItem } from '$lib/components/tab-bar';
 	import { ArcaneButton } from '$lib/components/arcane-button/index.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import * as ArcaneTooltip from '$lib/components/arcane-tooltip';
@@ -12,15 +14,15 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { m } from '$lib/paraglide/messages';
 	import { environmentManagementService } from '$lib/services/env-mgmt-service.js';
+	import { settingsService } from '$lib/services/settings-service';
 	import { environmentStore } from '$lib/stores/environment.store.svelte';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { CopyButton } from '$lib/components/ui/copy-button';
 	import type { AppVersionInformation } from '$lib/types/application-configuration';
+	import SelectWithLabel from '$lib/components/form/select-with-label.svelte';
+	import TextInputWithLabel from '$lib/components/form/text-input-with-label.svelte';
 	import {
 		ArrowLeftIcon,
-		RefreshIcon,
-		ConnectionIcon,
-		SaveIcon,
 		EnvironmentsIcon,
 		AlertIcon,
 		TestIcon,
@@ -28,15 +30,28 @@
 		ResetIcon,
 		ApiKeyIcon,
 		DockerBrandIcon,
-		InfoIcon
+		SettingsIcon
 	} from '$lib/icons';
 
 	let { data } = $props();
 	let { environment, settings, versionInformation } = $derived(data);
 
-	let showSwitchDialog = $state(false);
-
 	let currentEnvironment = $derived(environmentStore.selected);
+
+	let activeTab = $state('general');
+
+	const tabItems: TabItem[] = [
+		{
+			value: 'general',
+			label: m.general_title(),
+			icon: SettingsIcon
+		},
+		{
+			value: 'docker',
+			label: m.environments_docker_settings_title(),
+			icon: DockerBrandIcon
+		}
+	];
 
 	let isRefreshing = $state(false);
 	let isTestingConnection = $state(false);
@@ -55,6 +70,56 @@
 	let formEnabled = $state(false);
 	let formApiUrl = $state('');
 
+	// Settings form state
+	let formPollingEnabled = $state(false);
+	let formPollingInterval = $state(60);
+	let formAutoUpdate = $state(false);
+	let formAutoUpdateInterval = $state(1440);
+	let formPruneMode = $state<'all' | 'dangling'>('dangling');
+	let formDefaultShell = $state('/bin/sh');
+	let formProjectsDirectory = $state('data/projects');
+	let formDiskUsagePath = $state('data/projects');
+	let formMaxImageUploadSize = $state(500);
+	let formBaseServerUrl = $state('http://localhost');
+
+	type PollingIntervalMode = 'hourly' | 'daily' | 'weekly' | 'custom';
+
+	const imagePollingOptions: Array<{
+		value: PollingIntervalMode;
+		label: string;
+		description: string;
+		minutes?: number;
+	}> = [
+		{ value: 'hourly', minutes: 60, label: m.hourly(), description: m.polling_hourly_description() },
+		{ value: 'daily', minutes: 1440, label: m.daily(), description: m.polling_daily_description() },
+		{ value: 'weekly', minutes: 10080, label: m.weekly(), description: m.polling_weekly_description() },
+		{ value: 'custom', label: m.custom(), description: m.use_custom_polling_value() }
+	];
+
+	const presetToMinutes = Object.fromEntries(
+		imagePollingOptions.filter((o) => o.value !== 'custom').map((o) => [o.value, o.minutes!])
+	) as Record<Exclude<PollingIntervalMode, 'custom'>, number>;
+
+	let pollingIntervalMode = $state<PollingIntervalMode>('custom');
+
+	const pruneModeOptions = [
+		{ value: 'all', label: m.docker_prune_all(), description: m.docker_prune_all_description() },
+		{ value: 'dangling', label: m.docker_prune_dangling(), description: m.docker_prune_dangling_description() }
+	];
+
+	let pruneModeDescription = $derived(
+		pruneModeOptions.find((o) => o.value === formPruneMode)?.description ?? m.docker_prune_mode_description()
+	);
+
+	const shellOptions = [
+		{ value: '/bin/sh', label: '/bin/sh', description: m.docker_shell_sh_description() },
+		{ value: '/bin/bash', label: '/bin/bash', description: m.docker_shell_bash_description() },
+		{ value: '/bin/ash', label: '/bin/ash', description: m.docker_shell_ash_description() },
+		{ value: '/bin/zsh', label: '/bin/zsh', description: m.docker_shell_zsh_description() }
+	];
+
+	let shellSelectValue = $state<string>('custom');
+
 	// Track current status separately from environment data
 	let currentStatus = $state<'online' | 'offline' | 'error' | 'pending'>('offline');
 
@@ -64,6 +129,37 @@
 		formEnabled = environment.enabled;
 		formApiUrl = environment.apiUrl;
 		currentStatus = environment.status;
+
+		if (settings) {
+			formPollingEnabled = settings.pollingEnabled;
+			formPollingInterval = settings.pollingInterval;
+			formAutoUpdate = settings.autoUpdate;
+			formAutoUpdateInterval = settings.autoUpdateInterval;
+			formPruneMode = settings.dockerPruneMode || 'dangling';
+			formDefaultShell = settings.defaultShell || '/bin/sh';
+			formProjectsDirectory = settings.projectsDirectory || 'data/projects';
+			formDiskUsagePath = settings.diskUsagePath || 'data/projects';
+			formMaxImageUploadSize = settings.maxImageUploadSize || 500;
+			formBaseServerUrl = settings.baseServerUrl || 'http://localhost';
+
+			// Initialize derived states
+			pollingIntervalMode = imagePollingOptions.find((o) => o.minutes === settings.pollingInterval)?.value ?? 'custom';
+			shellSelectValue = shellOptions.find((o) => o.value === settings.defaultShell)?.value ?? 'custom';
+		}
+	});
+
+	// Sync polling mode select with form value
+	$effect(() => {
+		if (pollingIntervalMode !== 'custom') {
+			formPollingInterval = presetToMinutes[pollingIntervalMode];
+		}
+	});
+
+	// Sync shell select with form value
+	$effect(() => {
+		if (shellSelectValue !== 'custom') {
+			formDefaultShell = shellSelectValue;
+		}
 	});
 
 	// Fetch version when environment is online
@@ -88,7 +184,18 @@
 	let hasChanges = $derived(
 		formName !== environment.name ||
 			formEnabled !== environment.enabled ||
-			(environment.id !== '0' && formApiUrl !== environment.apiUrl)
+			(environment.id !== '0' && formApiUrl !== environment.apiUrl) ||
+			(settings &&
+				(formPollingEnabled !== settings.pollingEnabled ||
+					formPollingInterval !== settings.pollingInterval ||
+					formAutoUpdate !== settings.autoUpdate ||
+					formAutoUpdateInterval !== settings.autoUpdateInterval ||
+					formPruneMode !== (settings.dockerPruneMode || 'dangling') ||
+					formDefaultShell !== (settings.defaultShell || '/bin/sh') ||
+					formProjectsDirectory !== (settings.projectsDirectory || 'data/projects') ||
+					formDiskUsagePath !== (settings.diskUsagePath || 'data/projects') ||
+					formMaxImageUploadSize !== (settings.maxImageUploadSize || 500) ||
+					formBaseServerUrl !== (settings.baseServerUrl || 'http://localhost')))
 	);
 
 	async function refreshEnvironment() {
@@ -101,6 +208,20 @@
 			formEnabled = environment.enabled;
 			formApiUrl = environment.apiUrl;
 			currentStatus = environment.status;
+
+			if (settings) {
+				formPollingEnabled = settings.pollingEnabled;
+				formPollingInterval = settings.pollingInterval;
+				formAutoUpdate = settings.autoUpdate;
+				formAutoUpdateInterval = settings.autoUpdateInterval;
+				formPruneMode = settings.dockerPruneMode || 'dangling';
+				formDefaultShell = settings.defaultShell || '/bin/sh';
+
+				// Initialize derived states
+				pollingIntervalMode = imagePollingOptions.find((o) => o.minutes === settings.pollingInterval)?.value ?? 'custom';
+				shellSelectValue = shellOptions.find((o) => o.value === settings.defaultShell)?.value ?? 'custom';
+			}
+
 			// Reset version to trigger re-fetch if online
 			remoteVersion = null;
 		} catch (err) {
@@ -161,11 +282,28 @@
 		try {
 			isSaving = true;
 
+			// Update environment basic info
 			await environmentManagementService.update(environment.id, {
 				name: formName,
 				enabled: formEnabled,
 				apiUrl: formApiUrl
 			});
+
+			// Update environment settings if they exist
+			if (settings) {
+				await settingsService.updateSettingsForEnvironment(environment.id, {
+					pollingEnabled: formPollingEnabled,
+					pollingInterval: formPollingInterval,
+					autoUpdate: formAutoUpdate,
+					autoUpdateInterval: formAutoUpdateInterval,
+					dockerPruneMode: formPruneMode,
+					defaultShell: formDefaultShell,
+					projectsDirectory: formProjectsDirectory,
+					diskUsagePath: formDiskUsagePath,
+					maxImageUploadSize: formMaxImageUploadSize,
+					baseServerUrl: formBaseServerUrl
+				});
+			}
 
 			toast.success(m.common_update_success({ resource: m.resource_environment_cap() }));
 			await refreshEnvironment();
@@ -192,6 +330,24 @@
 		formName = environment.name;
 		formEnabled = environment.enabled;
 		formApiUrl = environment.apiUrl;
+
+		if (settings) {
+			formPollingEnabled = settings.pollingEnabled;
+			formPollingInterval = settings.pollingInterval;
+			formAutoUpdate = settings.autoUpdate;
+			formAutoUpdateInterval = settings.autoUpdateInterval;
+			formPruneMode = settings.dockerPruneMode || 'dangling';
+			formDefaultShell = settings.defaultShell || '/bin/sh';
+			formProjectsDirectory = settings.projectsDirectory || 'data/projects';
+			formDiskUsagePath = settings.diskUsagePath || 'data/projects';
+			formMaxImageUploadSize = settings.maxImageUploadSize || 500;
+			formBaseServerUrl = settings.baseServerUrl || 'http://localhost';
+
+			// Initialize derived states
+			pollingIntervalMode = imagePollingOptions.find((o) => o.minutes === settings.pollingInterval)?.value ?? 'custom';
+			shellSelectValue = shellOptions.find((o) => o.value === settings.defaultShell)?.value ?? 'custom';
+		}
+
 		toast.info(m.environments_changes_reset());
 	}
 
@@ -217,17 +373,6 @@
 		} finally {
 			isRegeneratingKey = false;
 			showRegenerateDialog = false;
-		}
-	}
-
-	async function confirmSwitchAndEdit() {
-		try {
-			await environmentStore.setEnvironment(environment);
-			showSwitchDialog = false;
-			goto('/settings');
-		} catch (error) {
-			console.error('Failed to switch environment:', error);
-			toast.error(m.common_action_failed());
 		}
 	}
 </script>
@@ -352,6 +497,50 @@
 					/>
 				</div>
 
+				<div>
+					<Label for="api-url" class="text-sm font-medium">{m.environments_api_url()}</Label>
+					<div class="mt-1.5 flex items-center gap-2">
+						{#if environment.id === '0'}
+							<ArcaneTooltip.Root>
+								<ArcaneTooltip.Trigger class="w-full">
+									<Input
+										id="api-url"
+										type="url"
+										bind:value={formApiUrl}
+										class="w-full font-mono"
+										placeholder={m.environments_api_url_placeholder()}
+										disabled={true}
+										required
+									/>
+								</ArcaneTooltip.Trigger>
+								<ArcaneTooltip.Content>
+									<p>{m.environments_local_setting_disabled()}</p>
+								</ArcaneTooltip.Content>
+							</ArcaneTooltip.Root>
+						{:else}
+							<Input
+								id="api-url"
+								type="url"
+								bind:value={formApiUrl}
+								class="w-full font-mono"
+								placeholder={m.environments_api_url_placeholder()}
+								required
+							/>
+						{/if}
+						<ArcaneButton
+							action="base"
+							onclick={testConnection}
+							disabled={isTestingConnection}
+							loading={isTestingConnection}
+							icon={TestIcon}
+							customLabel={m.environments_test_connection()}
+							loadingLabel={m.environments_testing_connection()}
+							class="shrink-0"
+						/>
+					</div>
+					<p class="text-muted-foreground mt-1.5 text-xs">{m.environments_api_url_help()}</p>
+				</div>
+
 				<div class="flex items-center justify-between rounded-lg border p-4">
 					<div class="space-y-0.5">
 						<Label for="env-enabled" class="text-sm font-medium">{m.common_enabled()}</Label>
@@ -428,113 +617,180 @@
 
 		{#if settings}
 			<Card.Root class="flex flex-col">
-				<Card.Header icon={DockerBrandIcon}>
+				<Card.Header icon={SettingsIcon}>
 					<div class="flex flex-col space-y-1.5">
 						<Card.Title>
-							<h2>{m.environments_docker_settings_title()}</h2>
+							<h2>{m.settings_title()}</h2>
 						</Card.Title>
 						<Card.Description>{m.environments_config_description()}</Card.Description>
 					</div>
 				</Card.Header>
-				<Card.Content class="space-y-4 p-4">
-					<div class="grid grid-cols-2 gap-4">
-						<div>
-							<Label class="text-muted-foreground text-xs font-medium">{m.docker_enable_polling_label()}</Label>
-							<div class="mt-1">
-								<StatusBadge
-									text={settings.pollingEnabled ? m.common_enabled() : m.common_disabled()}
-									variant={settings.pollingEnabled ? 'green' : 'gray'}
-								/>
+				<Card.Content class="p-0">
+					<Tabs.Root bind:value={activeTab} class="w-full">
+						<div class="border-b px-4 py-2">
+							<div class="w-fit">
+								<TabBar items={tabItems} value={activeTab} onValueChange={(value) => (activeTab = value)} />
 							</div>
 						</div>
-						{#if settings.pollingEnabled}
-							<div>
-								<Label class="text-muted-foreground text-xs font-medium">{m.docker_polling_interval_label()}</Label>
-								<div class="mt-1 text-sm">{settings.pollingInterval} min</div>
+						<Tabs.Content value="general" class="space-y-6 p-4">
+							<div class="grid gap-6 sm:grid-cols-2">
+								<div class="space-y-2">
+									<TextInputWithLabel
+										id="projects-directory"
+										label={m.general_projects_directory_label()}
+										bind:value={formProjectsDirectory}
+										helpText={m.general_projects_directory_help()}
+									/>
+								</div>
+								<div class="space-y-2">
+									<TextInputWithLabel
+										id="disk-usage-path"
+										label={m.disk_usage_settings()}
+										bind:value={formDiskUsagePath}
+										helpText={m.disk_usage_settings_description()}
+									/>
+								</div>
+								<div class="space-y-2">
+									<TextInputWithLabel
+										id="base-server-url"
+										label={m.general_base_url_label()}
+										bind:value={formBaseServerUrl}
+										helpText={m.general_base_url_help()}
+									/>
+								</div>
+								<div class="space-y-2">
+									<TextInputWithLabel
+										id="max-upload-size"
+										type="number"
+										label={m.docker_max_upload_size_label()}
+										bind:value={formMaxImageUploadSize}
+										helpText={m.docker_max_upload_size_description()}
+									/>
+								</div>
 							</div>
-						{/if}
-						<div>
-							<Label class="text-muted-foreground text-xs font-medium">{m.docker_auto_update_label()}</Label>
-							<div class="mt-1">
-								<StatusBadge
-									text={settings.autoUpdate ? m.common_enabled() : m.common_disabled()}
-									variant={settings.autoUpdate ? 'green' : 'gray'}
-								/>
+						</Tabs.Content>
+						<Tabs.Content value="docker" class="space-y-6 p-4">
+							<div class="grid gap-6 sm:grid-cols-2">
+								<!-- Polling Settings -->
+								<div class="space-y-4 rounded-lg border p-4">
+									<div class="flex items-center justify-between">
+										<div class="space-y-0.5">
+											<Label for="polling-enabled" class="text-sm font-medium">{m.docker_enable_polling_label()}</Label>
+											<div class="text-muted-foreground text-xs">{m.docker_enable_polling_description()}</div>
+										</div>
+										<Switch id="polling-enabled" bind:checked={formPollingEnabled} />
+									</div>
+
+									{#if formPollingEnabled}
+										<div class="space-y-3 pt-2">
+											<SelectWithLabel
+												id="pollingIntervalMode"
+												name="pollingIntervalMode"
+												bind:value={pollingIntervalMode}
+												label={m.docker_polling_interval_label()}
+												placeholder={m.docker_polling_interval_placeholder_select()}
+												options={imagePollingOptions.map(({ value, label, description }) => ({
+													value,
+													label,
+													description
+												}))}
+											/>
+
+											{#if pollingIntervalMode === 'custom'}
+												<TextInputWithLabel
+													bind:value={formPollingInterval}
+													label={m.custom_polling_interval()}
+													placeholder={m.docker_polling_interval_placeholder()}
+													helpText={m.docker_polling_interval_description()}
+													type="number"
+												/>
+											{/if}
+
+											{#if formPollingInterval < 30}
+												<div
+													class="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-900 dark:text-amber-200"
+												>
+													<AlertIcon class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+													<div class="flex-1 space-y-1">
+														<p class="text-sm font-medium">{m.docker_rate_limit_warning_title()}</p>
+														<p class="text-xs">{m.docker_rate_limit_warning_description()}</p>
+													</div>
+												</div>
+											{/if}
+										</div>
+									{/if}
+								</div>
+
+								<!-- Auto Update Settings -->
+								<div class="space-y-4 rounded-lg border p-4">
+									<div class="flex items-center justify-between">
+										<div class="space-y-0.5">
+											<Label for="auto-update" class="text-sm font-medium">{m.docker_auto_update_label()}</Label>
+											<div class="text-muted-foreground text-xs">{m.docker_auto_update_description()}</div>
+										</div>
+										<Switch id="auto-update" bind:checked={formAutoUpdate} disabled={!formPollingEnabled} />
+									</div>
+
+									{#if formAutoUpdate && formPollingEnabled}
+										<div class="pt-2">
+											<TextInputWithLabel
+												bind:value={formAutoUpdateInterval}
+												label={m.docker_auto_update_interval_label()}
+												placeholder={m.docker_auto_update_interval_placeholder()}
+												helpText={m.docker_auto_update_interval_description()}
+												type="number"
+											/>
+										</div>
+									{/if}
+								</div>
+
+								<!-- Prune Mode -->
+								<div class="space-y-2">
+									<SelectWithLabel
+										id="dockerPruneMode"
+										name="pruneMode"
+										bind:value={formPruneMode}
+										label={m.docker_prune_action_label()}
+										description={pruneModeDescription}
+										placeholder={m.docker_prune_placeholder()}
+										options={pruneModeOptions}
+										onValueChange={(v) => (formPruneMode = v as 'all' | 'dangling')}
+									/>
+								</div>
+
+								<!-- Default Shell -->
+								<div class="space-y-2">
+									<SelectWithLabel
+										id="shellSelectValue"
+										name="shellSelectValue"
+										bind:value={shellSelectValue}
+										label={m.docker_default_shell_label()}
+										description={m.docker_default_shell_description()}
+										placeholder={m.docker_default_shell_placeholder()}
+										options={[
+											...shellOptions,
+											{ value: 'custom', label: m.custom(), description: m.docker_shell_custom_description() }
+										]}
+									/>
+
+									{#if shellSelectValue === 'custom'}
+										<div class="pt-2">
+											<TextInputWithLabel
+												bind:value={formDefaultShell}
+												label={m.custom()}
+												placeholder={m.docker_shell_custom_path_placeholder()}
+												helpText={m.docker_shell_custom_path_help()}
+												type="text"
+											/>
+										</div>
+									{/if}
+								</div>
 							</div>
-						</div>
-						{#if settings.autoUpdate}
-							<div>
-								<Label class="text-muted-foreground text-xs font-medium">{m.docker_auto_update_interval_label()}</Label>
-								<div class="mt-1 text-sm">{settings.autoUpdateInterval} min</div>
-							</div>
-						{/if}
-						<div>
-							<Label class="text-muted-foreground text-xs font-medium">{m.docker_prune_action_label()}</Label>
-							<div class="mt-1 text-sm capitalize">{settings.dockerPruneMode || 'dangling'}</div>
-						</div>
-						<div>
-							<Label class="text-muted-foreground text-xs font-medium">{m.docker_default_shell_label()}</Label>
-							<div class="mt-1 font-mono text-sm">{settings.defaultShell || '/bin/sh'}</div>
-						</div>
-					</div>
+						</Tabs.Content>
+					</Tabs.Root>
 				</Card.Content>
 			</Card.Root>
 		{/if}
-
-		<Card.Root class="flex flex-col">
-			<Card.Header icon={ConnectionIcon}>
-				<div class="flex flex-col space-y-1.5">
-					<Card.Title>
-						<h2>{m.environments_connection_title()}</h2>
-					</Card.Title>
-					<Card.Description>{m.environments_connection_description()}</Card.Description>
-				</div>
-			</Card.Header>
-			<Card.Content class="space-y-4 p-4">
-				<div>
-					<Label for="api-url" class="text-sm font-medium">{m.environments_api_url()}</Label>
-					{#if environment.id === '0'}
-						<ArcaneTooltip.Root>
-							<ArcaneTooltip.Trigger class="w-full">
-								<Input
-									id="api-url"
-									type="url"
-									bind:value={formApiUrl}
-									class="mt-1.5 w-full font-mono"
-									placeholder={m.environments_api_url_placeholder()}
-									disabled={true}
-									required
-								/>
-							</ArcaneTooltip.Trigger>
-							<ArcaneTooltip.Content>
-								<p>{m.environments_local_setting_disabled()}</p>
-							</ArcaneTooltip.Content>
-						</ArcaneTooltip.Root>
-					{:else}
-						<Input
-							id="api-url"
-							type="url"
-							bind:value={formApiUrl}
-							class="mt-1.5 w-full font-mono"
-							placeholder={m.environments_api_url_placeholder()}
-							required
-						/>
-					{/if}
-					<p class="text-muted-foreground mt-1.5 text-xs">{m.environments_api_url_help()}</p>
-				</div>
-
-				<ArcaneButton
-					action="base"
-					onclick={testConnection}
-					disabled={isTestingConnection}
-					loading={isTestingConnection}
-					icon={TestIcon}
-					customLabel={m.environments_test_connection()}
-					loadingLabel={m.environments_testing_connection()}
-					class="w-full"
-				/>
-			</Card.Content>
-		</Card.Root>
 
 		{#if environment.id !== '0'}
 			<Card.Root class="flex flex-col">
@@ -599,23 +855,6 @@
 				<AlertDialog.Cancel>{m.common_cancel()}</AlertDialog.Cancel>
 				<AlertDialog.Action onclick={handleRegenerateApiKey}>
 					{m.environments_regenerate_api_key()}
-				</AlertDialog.Action>
-			</AlertDialog.Footer>
-		</AlertDialog.Content>
-	</AlertDialog.Root>
-
-	<AlertDialog.Root bind:open={showSwitchDialog}>
-		<AlertDialog.Content>
-			<AlertDialog.Header>
-				<AlertDialog.Title>{m.environments_switch_to_edit_title()}</AlertDialog.Title>
-				<AlertDialog.Description>
-					{m.environments_switch_to_edit_message()}
-				</AlertDialog.Description>
-			</AlertDialog.Header>
-			<AlertDialog.Footer>
-				<AlertDialog.Cancel>{m.common_cancel()}</AlertDialog.Cancel>
-				<AlertDialog.Action onclick={confirmSwitchAndEdit}>
-					{m.environments_switch_and_edit()}
 				</AlertDialog.Action>
 			</AlertDialog.Footer>
 		</AlertDialog.Content>
